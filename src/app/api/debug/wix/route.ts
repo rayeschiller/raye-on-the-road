@@ -43,6 +43,25 @@ export async function GET() {
         withContactId: (sj.submissions || []).filter((x) => x.contactId).length,
       }
     : { status: s.status, body: st.slice(0, 300) };
+  // Walk every page: total submissions and how many have a non-empty city answer
+  let total = 0, withCity = 0, pages = 0, cursor: string | undefined;
+  const statuses: Record<string, number> = {};
+  for (;;) {
+    const body = cursor ? { query: { cursorPaging: { limit: 100, cursor } } } : { query: { filter: { namespace: "wix.form_app.form" }, cursorPaging: { limit: 100 } } };
+    const rr = await fetch("https://www.wixapis.com/form-submission-service/v4/submissions/namespace/query", { method: "POST", headers: h, cache: "no-store", body: JSON.stringify(body) });
+    if (!rr.ok) { out.walkError = rr.status; break; }
+    const jj = (await rr.json()) as { submissions?: { status?: string; submissions?: Record<string, unknown> }[]; metadata?: { hasNext?: boolean; cursors?: { next?: string } } };
+    pages++;
+    for (const x of jj.submissions || []) {
+      total++;
+      statuses[x.status || "?"] = (statuses[x.status || "?"] || 0) + 1;
+      const v = x.submissions?.what_city_should_i_come_to_next;
+      if (typeof v === "string" && v.trim()) withCity++;
+    }
+    if (!jj.metadata?.hasNext || !jj.metadata.cursors?.next || pages > 100) break;
+    cursor = jj.metadata.cursors.next;
+  }
+  out.walk = { pages, total, withCity, statuses };
   // Contact extended field keys (custom fields often hold a "city" answer)
   const c = await fetch("https://www.wixapis.com/contacts/v4/contacts/query", { method: "POST", headers: h, cache: "no-store", body: JSON.stringify({ query: { paging: { limit: 200 }, fields: ["info.extendedFields", "info.addresses"] } }) });
   const ct = await c.text();

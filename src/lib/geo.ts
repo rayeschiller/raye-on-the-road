@@ -50,10 +50,17 @@ function expandHint(h: string) {
   return h;
 }
 
+/** "Saint Paul" / "St. Paul" / "st paul" all compare equal; same for Fort/Ft and Mount/Mt */
+const canon = (x: string) =>
+  norm(x).replace(/\./g, "").replace(/\bsaint\b/g, "st").replace(/\bsainte\b/g, "ste").replace(/\bfort\b/g, "ft").replace(/\bmount\b/g, "mt").replace(/\s+/g, " ").trim();
+const CANON = CITIES.map((r) => canon(r[0]));
+
 function scoreCities(name: string, hintRegion: string, limit: number): { p: CityRow; score: number }[] {
   const out: { p: CityRow; score: number }[] = [];
-  for (const r of CITIES) {
-    const cn = norm(r[0]);
+  name = canon(name);
+  for (let i = 0; i < CITIES.length; i++) {
+    const r = CITIES[i];
+    const cn = CANON[i];
     let score = 0;
     if (cn === name) score = 100;
     else if (cn.startsWith(name)) score = 60;
@@ -130,27 +137,60 @@ export function resolveLocation(raw: string): Place | null {
     return { city: seeded[0], region: nr(seeded[1]), country: nr(seeded[2]), lat: seeded[3], lon: seeded[4] };
   }
 
-  const n = norm(raw);
-  // Multiple cities ("NYC or LA", "Boston / Providence") -> needs review
-  if (/\b(or|and)\b|\/|&/.test(n) && n.split(/\b(?:or|and)\b|\/|&/).length > 1) {
-    const first = n.split(/\b(?:or|and)\b|\/|&/)[0].trim();
-    // Only accept if the first part alone is an exact well-known city
-    const hits = searchCities(first, 1);
-    if (hits.length && norm(hits[0].city) === norm(first.split(",")[0])) return hits[0];
-    return null;
-  }
-  // Strip trailing chatter: "Boston please!!", "Denver :)"
-  const cleaned = n.replace(/\b(please|pls|plz|thanks|thank you|would love|come to|come|visit|area)\b/g, " ").replace(/\s+/g, " ").trim();
-  const hits = searchCities(cleaned, 3);
+  // Bare state / country / placeholder answers ("florida", "US", "Canada") → needs review, never a same-named city
+  const bare = norm(raw).replace(/[.,!]+$/g, "").trim();
+  if (!bare || BARE_REGIONS.has(bare) || /^(test|n\/?a|none|idk|anywhere|everywhere)$/.test(bare)) return null;
+
+  // Split multi-city answers on separators BEFORE normalising (norm() strips "/" and "&")
+  const lower = raw.toLowerCase();
+  const pieces = lower.split(/\s*(?:\/|&|\bor\b|\band\b|;|\+)\s*/).map((x) => x.trim()).filter(Boolean);
+  if (pieces.length > 1) return resolveSingle(pieces[0], true);
+  // "Rochester NY, Buffalo NY, Toronto Canada" → 3+ comma parts: take the first if it's a city on its own
+  const commaParts = lower.split(",").map((x) => x.trim()).filter(Boolean);
+  if (commaParts.length >= 3) return resolveSingle(commaParts[0], true);
+  return resolveSingle(raw, false);
+}
+
+const BARE_REGIONS = new Set<string>([
+  ...Object.keys(US_ABBR),
+  ...Object.values(US_ABBR).map((x) => norm(x)),
+  "us", "usa", "u.s.", "u.s.a.", "united states", "america", "uk", "england", "canada", "australia", "mexico", "europe",
+  "france", "germany", "spain", "italy", "israel", "ireland", "scotland", "netherlands", "japan", "brazil", "india",
+]);
+// every country name in the city index ("denmark", "portugal", …)
+for (const r of CITIES) BARE_REGIONS.add(norm(r[2]));
+
+function resolveSingle(text: string, strictFirst: boolean): Place | null {
+  let n = norm(text.replace(/\.\s+(?=[A-Za-z]{2}\s*$)/, ", "))
+    .replace(/<3|:\)|;\)|:d/g, " ")
+    .replace(/\(.*?\)/g, " ")
+    // leading country tag: "US Portland maine", "USA - Austin"
+    .replace(/^(us|usa|u\.s\.?|united states)\b[\s,.-]*/, "")
+    // stray standalone numbers ("rochester 3") unless the whole thing is a zip
+    .replace(/(^|\s)\d{1,4}(?=\s|$)/g, " ")
+    .replace(/\b(please|pls|plz|thanks|thank you|would love|i'?ll travel|come to|come|visit|area|county)\b/g, " ")
+    .replace(/[!?]+/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/^[\s,.-]+|[\s,.-]+$/g, "")
+    .trim();
+  if (!n || /^\d{5}$/.test(n)) return null; // zip codes → review
+  if (BARE_REGIONS.has(n)) return null;
+
+  // "Denmark, Copenhagen" → swap when the first part is a country/state and the second a city
+  const parts = n.split(",").map((x) => x.trim()).filter(Boolean);
+  if (parts.length === 2 && BARE_REGIONS.has(parts[0]) && !BARE_REGIONS.has(parts[1])) n = `${parts[1]}, ${parts[0]}`;
+
+  const hits = searchCities(n, 3);
   if (!hits.length) return null;
   const top = hits[0];
-  const cityPart = cleaned.split(",")[0].trim();
+  const cityPart = n.split(",")[0].trim();
   const alias = ALIASES[cityPart];
   if (alias && norm(alias) === norm(top.city)) return top;
-  if (norm(top.city) === cityPart) return top;
+  if (canon(top.city) === canon(cityPart)) return top;
   // "seattle wa" / "portland maine": the split candidate's name matches exactly
-  if (splitQuery(cleaned).some((c) => c.hint && norm(top.city) === c.name)) return top;
-  // Accept a prefix match only if it's unambiguous (second hit is a different name with much lower pop)
+  if (splitQuery(n).some((c) => c.hint && canon(top.city) === canon(c.name))) return top;
+  if (strictFirst) return null;
+  // Accept a prefix match only if it's unambiguous
   if (norm(top.city).startsWith(cityPart) && cityPart.length >= 5 && (!hits[1] || norm(hits[1].city) !== norm(top.city))) return top;
   return null;
 }
