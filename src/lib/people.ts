@@ -9,6 +9,8 @@ let wixMemo: { at: number; people: WixPerson[] } | null = null;
 export type DataStatus = {
   wix: { configured: boolean; live: boolean; fetchedAt: string | null; count: number; error: string | null };
   beacons: { count: number };
+  legacyAnswers: number;
+  wixLiveAnswers: number;
   storage: "supabase" | "local";
   resend: { configured: boolean; sender: string | null };
 };
@@ -79,6 +81,7 @@ export async function buildPeople(opts: { force?: boolean } = {}): Promise<{ peo
     if (!p.lat && p.city) {
       const c = seededCenter(p.city, p.region, p.country);
       if (c) applyPlace(p, { city: p.city, region: p.region, country: p.country, lat: c[0], lon: c[1] }, "recorded");
+      else applyPlace(p, resolveLocation([p.city, p.region, p.country].filter(Boolean).join(", ")), "recorded");
     }
     byEmail.set(email, p);
   }
@@ -148,6 +151,8 @@ export async function buildPeople(opts: { force?: boolean } = {}): Promise<{ peo
   const status: DataStatus = {
     wix: { configured: wixConfigured(), live: wix.live, fetchedAt: wix.fetchedAt, count: wix.people.length, error: wix.error },
     beacons: { count: state.beacons.length },
+    legacyAnswers: Object.keys(state.legacyAnswers || {}).length,
+    wixLiveAnswers: wix.people.filter((w) => w.cityAnswer).length,
     storage: storageMode(),
     resend: { configured: Boolean(process.env.RESEND_API_KEY), sender: (process.env.EMAIL_FROM || "Raye Schiller <hello@rayeschiller.com>") || null },
   };
