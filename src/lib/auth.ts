@@ -25,10 +25,13 @@ export function verifySession(token: string | undefined | null) {
 }
 
 export function checkPassword(input: string) {
-  const pw = process.env.SITE_PASSWORD;
+  const pw = (process.env.SITE_PASSWORD || "").trim();
   if (!pw) return !process.env.VERCEL_ENV; // no password: allowed only in local dev
-  if (pw.length !== input.length) return false;
-  return timingSafeEqual(Buffer.from(pw), Buffer.from(input));
+  const given = (input || "").trim();
+  const a = Buffer.from(pw);
+  const b = Buffer.from(given);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
 }
 
 /** Token for one-click unsubscribe links */
