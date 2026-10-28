@@ -3,7 +3,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 export const COOKIE = "rotr_session";
 
 function secret() {
-  return process.env.SESSION_SECRET || process.env.SITE_PASSWORD || "dev-secret";
+  return process.env.SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || process.env.SITE_PASSWORD || "dev-secret";
 }
 
 export function sign(value: string) {

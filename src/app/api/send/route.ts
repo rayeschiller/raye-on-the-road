@@ -31,8 +31,8 @@ function render(body: string, firstName: string, unsubUrl: string, address: stri
 export async function POST(req: NextRequest) {
   const { id } = (await req.json()) as { id: string };
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM;
-  if (!apiKey || !from) return NextResponse.json({ error: "Email isn't connected yet: set RESEND_API_KEY and EMAIL_FROM." }, { status: 400 });
+  const from = (process.env.EMAIL_FROM || "Raye Schiller <hello@rayeschiller.com>");
+  if (!apiKey) return NextResponse.json({ error: "Email isn't connected yet: set RESEND_API_KEY." }, { status: 400 });
 
   const { people, state } = await buildPeople();
   const campaign = state.campaigns.find((c) => c.id === id);

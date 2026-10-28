@@ -148,7 +148,7 @@ export async function buildPeople(opts: { force?: boolean } = {}): Promise<{ peo
     wix: { configured: wixConfigured(), live: wix.live, fetchedAt: wix.fetchedAt, count: wix.people.length, error: wix.error },
     beacons: { count: state.beacons.length },
     storage: storageMode(),
-    resend: { configured: Boolean(process.env.RESEND_API_KEY), sender: process.env.EMAIL_FROM || null },
+    resend: { configured: Boolean(process.env.RESEND_API_KEY), sender: (process.env.EMAIL_FROM || "Raye Schiller <hello@rayeschiller.com>") || null },
   };
   return { people, status, state };
 }
