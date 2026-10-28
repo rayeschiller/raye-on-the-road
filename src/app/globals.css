@@ -50,3 +50,5 @@ body { background: var(--bg); color: var(--ink); font-family: var(--font-sans); 
 .marker-pin.requested { background: var(--pink); }
 .marker-pin.big { width:36px; height:36px; font-size:13px; }
 .marker-pin.center { background: #fff; color: var(--pink); border: 3px solid var(--pink); }
+
+.rotr-tiles { filter: grayscale(0.85) brightness(1.05) contrast(0.9); }
