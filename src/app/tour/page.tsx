@@ -11,7 +11,10 @@ export default async function TourPage() {
         <header className="space-y-2">
           <div className="eyebrow">Raye on the road · 2027</div>
           <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight">Where should I bring the tour?</h1>
-          <p className="text-muted">Here&apos;s where my people are so far, across {countries} countries. Don&apos;t see your city high enough? Bring your friends.</p>
+          <p className="text-muted">
+            Here&apos;s where my people are so far, across {countries} countries. Don&apos;t see your city high enough?{" "}
+            <a className="text-pink font-medium underline underline-offset-2" href="https://www.rayeschiller.com/signup">Sign up at rayeschiller.com/signup</a>
+          </p>
         </header>
         <ol className="card p-4 sm:p-6 space-y-3">
           {cities.map((c, i) => (
@@ -42,7 +45,7 @@ export default async function TourPage() {
             <div className="font-medium">Want me in your city?</div>
             <div className="text-sm text-muted">Tell me where, and I&apos;ll email you when I&apos;m coming.</div>
           </div>
-          <a className="btn btn-pink justify-center" href="https://www.rayeschiller.com/">Vote for your city</a>
+          <a className="btn btn-pink justify-center" href="https://www.rayeschiller.com/signup">Vote for your city</a>
         </div>
         <p className="text-xs text-muted text-center">Shares of everyone who told me their city. No names, no counts.</p>
       </div>
