@@ -143,7 +143,7 @@ export function resolveLocation(raw: string): Place | null {
 
   // Split multi-city answers on separators BEFORE normalising (norm() strips "/" and "&")
   const lower = raw.toLowerCase();
-  if (/^\s*(washington,?\s*d\.?\s*c\.?|d\.?c\.?)(\s*,.*)?$/.test(lower)) return resolveSingle("washington dc", false);
+  if (/(^|[\s,])d\.?\s?c\.?(?=[\s,]|$)/.test(lower) && (/washington/.test(lower) || /^\s*d\.?\s?c\.?\s*$/.test(lower))) return resolveSingle("washington, dc", false);
   const pieces = lower.split(/\s*(?:\/|&|\bor\b|\band\b|;|\+)\s*/).map((x) => x.trim()).filter(Boolean);
   if (pieces.length > 1) return resolveSingle(pieces[0], true);
   // "Rochester NY, Buffalo NY, Toronto Canada" → 3+ comma parts: take the first if it's a city on its own
