@@ -6,7 +6,7 @@ import type { StoreState, BeaconsPerson } from "./types";
  * Persistent JSON state: one row in a Supabase `kv` table (free tier) when
  * SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY are set; otherwise ./data/state.json locally.
  *
- *   create table kv (key text primary key, value jsonb not null, updated_at timestamptz default now());
+ *   create table rotr_kv (key text primary key, value jsonb not null, updated_at timestamptz default now());
  */
 
 const KEY = "raye-on-the-road";
@@ -39,7 +39,7 @@ export async function loadState(): Promise<StoreState> {
   let state: StoreState | null = null;
   const sb = supabase();
   if (sb) {
-    const res = await fetch(`${sb.url}/rest/v1/kv?select=value&key=eq.${KEY}`, {
+    const res = await fetch(`${sb.url}/rest/v1/rotr_kv?select=value&key=eq.${KEY}`, {
       headers: { apikey: sb.key, Authorization: `Bearer ${sb.key}` },
       cache: "no-store",
     });
@@ -63,7 +63,7 @@ export async function saveState(state: StoreState): Promise<void> {
   memo = { state, at: Date.now() };
   const sb = supabase();
   if (sb) {
-    const res = await fetch(`${sb.url}/rest/v1/kv?on_conflict=key`, {
+    const res = await fetch(`${sb.url}/rest/v1/rotr_kv?on_conflict=key`, {
       method: "POST",
       headers: { apikey: sb.key, Authorization: `Bearer ${sb.key}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
       body: JSON.stringify({ key: KEY, value: state, updated_at: new Date().toISOString() }),

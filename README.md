@@ -15,7 +15,7 @@ Private audience map + show-email tool. Every page load pulls your subscribers a
 |---|---|---|
 | Wix contacts + form submissions | Wix REST API, server-side, on every load (60 s cache; "Refresh from Wix" forces it) | live |
 | Beacons | uploaded once via Connections → Import (`beacons-import.json` from the old site, or a Beacons `audience_list.csv`); stored in Supabase, never in git | manual |
-| Fixes, drafts, unsubscribes | one JSON row in a Supabase `kv` table (free tier); `./data/state.json` locally | — |
+| Fixes, drafts, unsubscribes | one JSON row in a Supabase `rotr_kv` table (free tier); `./data/state.json` locally | — |
 
 City resolution: a bundled GeoNames-derived index (`src/lib/seed/cities.json`, pop ≥ 5k) plus the 186 hand-cleaned answers from the old site (`seed/raw.json`).
 
