@@ -143,17 +143,20 @@ export function resolveLocation(raw: string): Place | null {
 
   // Split multi-city answers on separators BEFORE normalising (norm() strips "/" and "&")
   const lower = raw.toLowerCase();
+  if (/^\s*(washington,?\s*d\.?\s*c\.?|d\.?c\.?)(\s*,.*)?$/.test(lower)) return resolveSingle("washington dc", false);
   const pieces = lower.split(/\s*(?:\/|&|\bor\b|\band\b|;|\+)\s*/).map((x) => x.trim()).filter(Boolean);
   if (pieces.length > 1) return resolveSingle(pieces[0], true);
   // "Rochester NY, Buffalo NY, Toronto Canada" → 3+ comma parts: take the first if it's a city on its own
   const commaParts = lower.split(",").map((x) => x.trim()).filter(Boolean);
   if (commaParts.length >= 3) {
-    // "City, Region, Country" (old-site format) → try city + country, then city + region, then city alone
-    return (
-      resolveSingle(`${commaParts[0]}, ${commaParts[commaParts.length - 1]}`, true) ||
-      resolveSingle(`${commaParts[0]}, ${commaParts[1]}`, true) ||
-      resolveSingle(commaParts[0], true)
-    );
+    // "City, Region, Country" (old-site format): accept a match only when its region / country actually agrees
+    const [c, r] = commaParts;
+    const k = commaParts[commaParts.length - 1];
+    const byRegion = resolveSingle(`${c}, ${r}`, true);
+    if (byRegion && norm(byRegion.region) === expandHint(norm(r))) return byRegion;
+    const byCountry = resolveSingle(`${c}, ${k}`, true);
+    if (byCountry && (norm(byCountry.country) === expandHint(norm(k)) || norm(byCountry.country).startsWith(norm(k)))) return byCountry;
+    return resolveSingle(c, true);
   }
   return resolveSingle(raw, false);
 }
