@@ -1,4 +1,4 @@
-import { resolveLocation, seededCenter } from "./geo";
+import { canonicalPlace, resolveLocation, seededCenter } from "./geo";
 import { loadState, updateState, storageMode } from "./store";
 import { fetchWixPeople, wixConfigured } from "./wix";
 import type { Person, Place, StoreState, WixPerson } from "./types";
@@ -142,6 +142,12 @@ export async function buildPeople(opts: { force?: boolean } = {}): Promise<{ peo
     const rawKey = (p.rawLocation || "").trim().toLowerCase();
     const fix = state.overrides.emailFixes[p.email] || (rawKey && state.overrides.rawFixes[rawKey]);
     if (fix) applyPlace(p, fix, p.sources.includes("wix") && p.rawLocation ? "requested" : "recorded");
+    if (p.lat != null && p.lon != null) {
+      const c = canonicalPlace({ city: p.city, region: p.region, country: p.country, lat: p.lat, lon: p.lon })!;
+      p.city = c.city;
+      p.region = c.region;
+      p.country = c.country;
+    }
     const wixOk = p.wixStatus === null ? true : p.wixStatus !== "UNSUBSCRIBED";
     const beaconsOk = p.beaconsStatus === null ? true : p.beaconsStatus === "Subscribed";
     p.emailEligible = !p.siteUnsubscribed && wixOk && beaconsOk;

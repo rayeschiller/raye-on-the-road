@@ -128,7 +128,7 @@ const GEO = geoSeed as unknown as Record<string, [number, number]>;
 const RAW = rawSeed as unknown as Record<string, [string, string, string, number, number]>;
 
 /** One canonical spelling per place, so variants cluster into a single pin */
-function canonicalPlace(p: Place | null): Place | null {
+export function canonicalPlace(p: Place | null): Place | null {
   if (!p) return p;
   if (/washington,?\s*d\.?c/i.test(p.region) || /^washington,?\s*d\.?c/i.test(p.city)) return { ...p, city: "Washington, D.C.", region: "District of Columbia", country: "United States" };
   return p;
