@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { COOKIE, verifySession } from "@/lib/auth";
 
-const PUBLIC = [/^\/login/, /^\/unsubscribe/, /^\/api\/login/, /^\/api\/unsubscribe/, /^\/_next\//, /^\/favicon/, /^\/icon/];
+const PUBLIC = [/^\/tour/, /^\/api\/public\//, /^\/login/, /^\/unsubscribe/, /^\/api\/login/, /^\/api\/unsubscribe/, /^\/_next\//, /^\/favicon/, /^\/icon/];
 
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;

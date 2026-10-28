@@ -76,6 +76,36 @@ export async function saveState(state: StoreState): Promise<void> {
   }
 }
 
+/** Separate rows for data that must never be clobbered by (or clobber) the main state. */
+export async function loadKey<T>(key: string): Promise<T | null> {
+  const sb = supabase();
+  if (sb) {
+    const res = await fetch(`${sb.url}/rest/v1/rotr_kv?select=value&key=eq.${encodeURIComponent(key)}`, { headers: { apikey: sb.key, Authorization: `Bearer ${sb.key}` }, cache: "no-store" });
+    if (!res.ok) return null;
+    const rows = (await res.json()) as { value: T }[];
+    return rows[0]?.value ?? null;
+  }
+  try {
+    return JSON.parse(await fs.readFile(path.join(process.cwd(), "data", `${key.replace(/[^a-z0-9-]/gi, "_")}.json`), "utf8")) as T;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveKey<T>(key: string, value: T): Promise<void> {
+  const sb = supabase();
+  if (sb) {
+    await fetch(`${sb.url}/rest/v1/rotr_kv?on_conflict=key`, {
+      method: "POST",
+      headers: { apikey: sb.key, Authorization: `Bearer ${sb.key}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify({ key, value, updated_at: new Date().toISOString() }),
+    });
+    return;
+  }
+  await fs.mkdir(path.join(process.cwd(), "data"), { recursive: true });
+  await fs.writeFile(path.join(process.cwd(), "data", `${key.replace(/[^a-z0-9-]/gi, "_")}.json`), JSON.stringify(value));
+}
+
 export async function updateState(fn: (s: StoreState) => void | Promise<void>): Promise<StoreState> {
   memo = null;
   const s = await loadState();

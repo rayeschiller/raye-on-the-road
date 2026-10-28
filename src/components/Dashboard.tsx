@@ -34,6 +34,7 @@ export default function Dashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [center, setCenter] = useState<Place | null>(null);
   const [radius, setRadius] = useState(25);
+  const [pct, setPct] = useState(false);
   const [editing, setEditing] = useState<Campaign | null>(null);
 
   const load = useCallback(async (force = false) => {
@@ -151,7 +152,11 @@ export default function Dashboard() {
               )}
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <button className={`btn ${pct ? "btn-pink" : "btn-ghost"}`} onClick={() => setPct((v) => !v)} title="Show shares instead of counts — safe to screenshot">
+              {pct ? "% view on" : "Show %"}
+            </button>
+            <a className="btn btn-ghost" href="/tour" target="_blank" rel="noreferrer">Public page ↗</a>
             <button className="btn btn-ghost" onClick={() => load(true)} disabled={refreshing}>
               {refreshing ? "Refreshing…" : "↻ Refresh from Wix"}
             </button>
@@ -162,18 +167,29 @@ export default function Dashboard() {
         </header>
 
         <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <Stat label="All contacts" value={fmt(people.length)} sub={`${fmt(stats.eligible)} eligible for email`} />
-          <Stat label="On your map" value={fmt(stats.onMap)} sub="city centers located" />
-          <Stat label="Countries" value={fmt(stats.countries)} sub="a worldwide kind of funny" />
-          <Stat label="Next stop" value={center ? center.city : "Where to?"} sub={center ? `${nearby.length} within ${radius} mi` : "pick a city below"} accent />
+          {pct ? (
+            <>
+              <Stat label="Top city" value={clusters[0]?.city ?? "—"} sub={clusters[0] ? `${Math.round((clusters[0].count / Math.max(1, stats.onMap)) * 100)}% of your people` : ""} />
+              <Stat label="Top 5 cities" value={`${Math.round((clusters.slice(0, 5).reduce((a, c) => a + c.count, 0) / Math.max(1, stats.onMap)) * 100)}%`} sub="of everyone on the map" />
+              <Stat label="Countries" value={fmt(stats.countries)} sub="a worldwide kind of funny" />
+              <Stat label="Next stop" value={center ? center.city : "Where to?"} sub={center ? `${Math.round((nearby.length / Math.max(1, stats.onMap)) * 100)}% within ${radius} mi` : "pick a city below"} accent />
+            </>
+          ) : (
+            <>
+              <Stat label="All contacts" value={fmt(people.length)} sub={`${fmt(stats.eligible)} eligible for email`} />
+              <Stat label="On your map" value={fmt(stats.onMap)} sub="city centers located" />
+              <Stat label="Countries" value={fmt(stats.countries)} sub="a worldwide kind of funny" />
+              <Stat label="Next stop" value={center ? center.city : "Where to?"} sub={center ? `${nearby.length} within ${radius} mi` : "pick a city below"} accent />
+            </>
+          )}
         </section>
 
         {loading ? (
           <div className="card p-10 text-center text-muted">Pulling in your people…</div>
         ) : tab === "explore" ? (
-          <ExploreTab clusters={clusters} center={center} setCenter={setCenter} radius={radius} setRadius={setRadius} nearby={nearby} onPickCity={pickCity} onEmail={() => startEmail()} />
+          <ExploreTab pct={pct} clusters={clusters} center={center} setCenter={setCenter} radius={radius} setRadius={setRadius} nearby={nearby} onPickCity={pickCity} onEmail={() => startEmail()} />
         ) : tab === "cities" ? (
-          <CitiesTab clusters={clusters} onPick={pickCity} />
+          <CitiesTab pct={pct} clusters={clusters} onPick={pickCity} />
         ) : tab === "emails" ? (
           <EmailsTab people={people} campaigns={data?.campaigns ?? []} editing={editing} setEditing={setEditing} reload={() => load()} status={s!} />
         ) : tab === "needs" ? (
@@ -221,7 +237,7 @@ function PersonRow({ p, extra }: { p: Person; extra?: string }) {
   );
 }
 
-function ExploreTab({ clusters, center, setCenter, radius, setRadius, nearby, onPickCity, onEmail }: { clusters: CityCluster[]; center: Place | null; setCenter: (p: Place | null) => void; radius: number; setRadius: (n: number) => void; nearby: { p: Person; d: number }[]; onPickCity: (c: CityCluster) => void; onEmail: () => void }) {
+function ExploreTab({ pct, clusters, center, setCenter, radius, setRadius, nearby, onPickCity, onEmail }: { pct: boolean; clusters: CityCluster[]; center: Place | null; setCenter: (p: Place | null) => void; radius: number; setRadius: (n: number) => void; nearby: { p: Person; d: number }[]; onPickCity: (c: CityCluster) => void; onEmail: () => void }) {
   return (
     <div className="space-y-4">
       <div className="card p-4 lg:p-5 space-y-4">
@@ -241,7 +257,7 @@ function ExploreTab({ clusters, center, setCenter, radius, setRadius, nearby, on
             ))}
           </div>
         </div>
-        <MapView clusters={clusters} center={center} radiusMiles={radius} onPickCity={onPickCity} />
+        <MapView hideCounts={pct} clusters={clusters} center={center} radiusMiles={radius} onPickCity={onPickCity} />
         <div className="flex gap-4 text-xs text-muted">
           <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-ink-soft" /> Location on file</span>
           <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-pink" /> Asked for a show here</span>
@@ -272,7 +288,9 @@ function ExploreTab({ clusters, center, setCenter, radius, setRadius, nearby, on
   );
 }
 
-function CitiesTab({ clusters, onPick }: { clusters: CityCluster[]; onPick: (c: CityCluster) => void }) {
+function CitiesTab({ pct, clusters, onPick }: { pct: boolean; clusters: CityCluster[]; onPick: (c: CityCluster) => void }) {
+  const total = clusters.reduce((a, c) => a + c.count, 0) || 1;
+  const max = clusters[0]?.count || 1;
   const [q, setQ] = useState("");
   const shown = clusters.filter((c) => !q || `${c.city} ${c.region} ${c.country}`.toLowerCase().includes(q.toLowerCase()));
   return (
@@ -292,10 +310,17 @@ function CitiesTab({ clusters, onPick }: { clusters: CityCluster[]; onPick: (c: 
               <div className="font-medium truncate">{c.city}</div>
               <div className="text-xs text-muted truncate">{[c.region, c.country].filter(Boolean).join(", ")}</div>
             </div>
-            <div className="text-right">
-              <div className="font-semibold tabular-nums">{c.count}</div>
-              {c.requested > 0 && <div className="text-[11px] text-pink">{c.requested} asked</div>}
-            </div>
+            {pct ? (
+              <div className="w-28 sm:w-36">
+                <div className="h-2 rounded-full bg-pink-soft overflow-hidden"><div className="h-full rounded-full bg-pink" style={{ width: `${Math.max(4, Math.round((c.count / max) * 100))}%` }} /></div>
+                <div className="text-[11px] text-muted text-right mt-0.5 tabular-nums">{(c.count / total) * 100 < 1 ? "<1" : Math.round((c.count / total) * 100)}%</div>
+              </div>
+            ) : (
+              <div className="text-right">
+                <div className="font-semibold tabular-nums">{c.count}</div>
+                {c.requested > 0 && <div className="text-[11px] text-pink">{c.requested} asked</div>}
+              </div>
+            )}
             <button className="btn btn-ghost !py-1.5 !px-3 text-xs" onClick={() => onPick(c)}>
               Local crowd
             </button>

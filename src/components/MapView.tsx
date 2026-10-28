@@ -23,11 +23,13 @@ export function clusterByCity(people: Person[]): CityCluster[] {
 }
 
 export default function MapView({
+  hideCounts = false,
   clusters,
   center,
   radiusMiles,
   onPickCity,
 }: {
+  hideCounts?: boolean;
   clusters: CityCluster[];
   center: Place | null;
   radiusMiles: number;
@@ -59,13 +61,13 @@ export default function MapView({
     for (const c of clusters) {
       const kind = c.requested > c.count / 2 ? "requested" : "recorded";
       const big = c.count >= 10;
-      const icon = L.divIcon({ className: "", html: `<div class="marker-pin ${kind} ${big ? "big" : ""}">${c.count}</div>`, iconSize: big ? [36, 36] : [28, 28], iconAnchor: big ? [18, 18] : [14, 14] });
+      const icon = L.divIcon({ className: "", html: `<div class="marker-pin ${kind} ${big ? "big" : ""}">${hideCounts ? "" : c.count}</div>`, iconSize: big ? [36, 36] : [28, 28], iconAnchor: big ? [18, 18] : [14, 14] });
       const mk = L.marker([c.lat, c.lon], { icon, title: c.city });
-      mk.bindTooltip(`<strong>${c.city}</strong>${c.region ? ", " + c.region : ""}<br>${c.count} ${c.count === 1 ? "person" : "people"}${c.requested ? ` · ${c.requested} asked for a show` : ""}`, { direction: "top", offset: [0, -14] });
+      mk.bindTooltip(`<strong>${c.city}</strong>${c.region ? ", " + c.region : ""}${hideCounts ? "" : `<br>${c.count} ${c.count === 1 ? "person" : "people"}${c.requested ? ` · ${c.requested} asked for a show` : ""}`}`, { direction: "top", offset: [0, -14] });
       mk.on("click", () => onPickCity(c));
       mk.addTo(layer.current!);
     }
-  }, [clusters, onPickCity]);
+  }, [clusters, onPickCity, hideCounts]);
 
   useEffect(() => {
     if (!map.current) return;

@@ -1,9 +1,11 @@
 import { canonicalPlace, resolveLocation, seededCenter } from "./geo";
-import { loadState, updateState, storageMode } from "./store";
+import { loadKey, loadState, saveKey, storageMode } from "./store";
 import { fetchWixPeople, wixConfigured } from "./wix";
 import type { Person, Place, StoreState, WixPerson } from "./types";
 
 const WIX_TTL_MS = 60_000;
+const SNAPSHOT_KEY = "raye-on-the-road:wix-snapshot";
+type WixSnapshot = { fetchedAt: string; people: WixPerson[] };
 let wixMemo: { at: number; people: WixPerson[] } | null = null;
 
 export type DataStatus = {
@@ -17,8 +19,8 @@ export type DataStatus = {
 
 async function getWixPeople(force: boolean): Promise<{ people: WixPerson[]; live: boolean; fetchedAt: string | null; error: string | null }> {
   if (!wixConfigured()) {
-    const s = await loadState();
-    return { people: s.wixSnapshot?.people || [], live: false, fetchedAt: s.wixSnapshot?.fetchedAt || null, error: "Wix not connected" };
+    const snap = await loadKey<WixSnapshot>(SNAPSHOT_KEY);
+    return { people: snap?.people || [], live: false, fetchedAt: snap?.fetchedAt || null, error: "Wix not connected" };
   }
   if (!force && wixMemo && Date.now() - wixMemo.at < WIX_TTL_MS) {
     return { people: wixMemo.people, live: true, fetchedAt: new Date(wixMemo.at).toISOString(), error: null };
@@ -28,13 +30,11 @@ async function getWixPeople(force: boolean): Promise<{ people: WixPerson[]; live
     wixMemo = { at: Date.now(), people };
     const fetchedAt = new Date().toISOString();
     // Keep a snapshot so the site still works if Wix is down
-    updateState((s) => {
-      s.wixSnapshot = { fetchedAt, people };
-    }).catch(() => {});
+    saveKey<WixSnapshot>(SNAPSHOT_KEY, { fetchedAt, people }).catch(() => {});
     return { people, live: true, fetchedAt, error: null };
   } catch (e) {
-    const s = await loadState();
-    return { people: s.wixSnapshot?.people || [], live: false, fetchedAt: s.wixSnapshot?.fetchedAt || null, error: (e as Error).message };
+    const snap = await loadKey<WixSnapshot>(SNAPSHOT_KEY);
+    return { people: snap?.people || [], live: false, fetchedAt: snap?.fetchedAt || null, error: (e as Error).message };
   }
 }
 
