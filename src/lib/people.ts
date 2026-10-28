@@ -1,5 +1,5 @@
 import { resolveLocation, seededCenter } from "./geo";
-import { loadState, updateState } from "./store";
+import { loadState, updateState, storageMode } from "./store";
 import { fetchWixPeople, wixConfigured } from "./wix";
 import type { Person, Place, StoreState, WixPerson } from "./types";
 
@@ -9,7 +9,7 @@ let wixMemo: { at: number; people: WixPerson[] } | null = null;
 export type DataStatus = {
   wix: { configured: boolean; live: boolean; fetchedAt: string | null; count: number; error: string | null };
   beacons: { count: number };
-  storage: "blob" | "local";
+  storage: "supabase" | "local";
   resend: { configured: boolean; sender: string | null };
 };
 
@@ -147,7 +147,7 @@ export async function buildPeople(opts: { force?: boolean } = {}): Promise<{ peo
   const status: DataStatus = {
     wix: { configured: wixConfigured(), live: wix.live, fetchedAt: wix.fetchedAt, count: wix.people.length, error: wix.error },
     beacons: { count: state.beacons.length },
-    storage: process.env.BLOB_READ_WRITE_TOKEN ? "blob" : "local",
+    storage: storageMode(),
     resend: { configured: Boolean(process.env.RESEND_API_KEY), sender: process.env.EMAIL_FROM || null },
   };
   return { people, status, state };

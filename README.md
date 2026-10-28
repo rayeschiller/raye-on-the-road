@@ -14,8 +14,8 @@ Private audience map + show-email tool. Every page load pulls your subscribers a
 | Source | How | Freshness |
 |---|---|---|
 | Wix contacts + form submissions | Wix REST API, server-side, on every load (60 s cache; "Refresh from Wix" forces it) | live |
-| Beacons | uploaded once via Connections → Import (`beacons-import.json` from the old site, or a Beacons `audience_list.csv`); stored in private Blob, never in git | manual |
-| Fixes, drafts, unsubscribes | Vercel Blob (private) on Vercel; `./data/state.json` locally | — |
+| Beacons | uploaded once via Connections → Import (`beacons-import.json` from the old site, or a Beacons `audience_list.csv`); stored in Supabase, never in git | manual |
+| Fixes, drafts, unsubscribes | one JSON row in a Supabase `kv` table (free tier); `./data/state.json` locally | — |
 
 City resolution: a bundled GeoNames-derived index (`src/lib/seed/cities.json`, pop ≥ 5k) plus the 186 hand-cleaned answers from the old site (`seed/raw.json`).
 
@@ -23,7 +23,7 @@ City resolution: a bundled GeoNames-derived index (`src/lib/seed/cities.json`, p
 
 1. Push this repo to GitHub. (No contact data lives in the repo — only city names/coordinates.)
 2. Vercel → Add New Project → import the repo. Framework: Next.js, no changes needed.
-3. Storage tab → Create **Blob** store → connect to the project (adds `BLOB_READ_WRITE_TOKEN`).
+3. Supabase (free): create a project, run `supabase/schema.sql` in the SQL editor, then install the Supabase ↔ Vercel integration (it sets `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` on the project).
 4. Settings → Environment Variables (see `.env.example`):
    - `SITE_PASSWORD` — the dashboard password
    - `SESSION_SECRET` — any long random string

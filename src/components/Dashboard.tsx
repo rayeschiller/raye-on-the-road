@@ -540,7 +540,7 @@ function SettingsTab({ status, reload }: { status: DataStatus; reload: () => voi
         {msg && <span className="text-sm text-muted ml-3">{msg}</span>}
       </ConnRow>
       <ConnRow ok={status.resend.configured} title="Show emails (Resend)" body={status.resend.configured ? `Sending as ${status.resend.sender}. Every email carries a one-click unsubscribe.` : "Add RESEND_API_KEY and EMAIL_FROM (e.g. hello@rayeschiller.com, on a domain verified in Resend). Optional: MAILING_ADDRESS for the footer."} />
-      <ConnRow ok={status.storage === "blob"} title="Storage" body={status.storage === "blob" ? "Drafts, fixes and unsubscribes are saved in Vercel Blob (private)." : "Running on local file storage. On Vercel, add a Blob store so saves persist between deploys."} />
+      <ConnRow ok={status.storage === "supabase"} title="Storage" body={status.storage === "supabase" ? "Drafts, fixes, unsubscribes and the Beacons list are saved in your Supabase database (free tier)." : "Running on local file storage. On Vercel, set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY so saves persist."} />
     </div>
   );
 }

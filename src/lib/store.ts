@@ -3,11 +3,13 @@ import path from "node:path";
 import type { StoreState, BeaconsPerson } from "./types";
 
 /**
- * Persistent JSON state. On Vercel this lives in Vercel Blob (BLOB_READ_WRITE_TOKEN);
- * locally it's a file in ./data/state.json.
+ * Persistent JSON state: one row in a Supabase `kv` table (free tier) when
+ * SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY are set; otherwise ./data/state.json locally.
+ *
+ *   create table kv (key text primary key, value jsonb not null, updated_at timestamptz default now());
  */
 
-const BLOB_PATH = "raye-on-the-road/state.json";
+const KEY = "raye-on-the-road";
 const LOCAL_PATH = path.join(process.cwd(), "data", "state.json");
 
 function emptyState(): StoreState {
@@ -19,8 +21,15 @@ function emptyState(): StoreState {
   };
 }
 
-function hasBlob() {
-  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+function supabase() {
+  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
+  if (!url || !key) return null;
+  return { url: url.replace(/\/$/, ""), key };
+}
+
+export function storageMode(): "supabase" | "local" {
+  return supabase() ? "supabase" : "local";
 }
 
 let memo: { state: StoreState; at: number } | null = null;
@@ -28,13 +37,15 @@ let memo: { state: StoreState; at: number } | null = null;
 export async function loadState(): Promise<StoreState> {
   if (memo && Date.now() - memo.at < 5000) return memo.state;
   let state: StoreState | null = null;
-  if (hasBlob()) {
-    const { get } = await import("@vercel/blob");
-    const r = await get(BLOB_PATH, { access: "private", useCache: false });
-    if (r && r.stream) {
-      const text = await new Response(r.stream).text();
-      state = JSON.parse(text) as StoreState;
-    }
+  const sb = supabase();
+  if (sb) {
+    const res = await fetch(`${sb.url}/rest/v1/kv?select=value&key=eq.${KEY}`, {
+      headers: { apikey: sb.key, Authorization: `Bearer ${sb.key}` },
+      cache: "no-store",
+    });
+    if (!res.ok) throw new Error(`Supabase read failed: ${res.status} ${(await res.text()).slice(0, 200)}`);
+    const rows = (await res.json()) as { value: StoreState }[];
+    state = rows[0]?.value ?? null;
   } else {
     try {
       state = JSON.parse(await fs.readFile(LOCAL_PATH, "utf8")) as StoreState;
@@ -50,13 +61,17 @@ export async function loadState(): Promise<StoreState> {
 
 export async function saveState(state: StoreState): Promise<void> {
   memo = { state, at: Date.now() };
-  const json = JSON.stringify(state);
-  if (hasBlob()) {
-    const { put } = await import("@vercel/blob");
-    await put(BLOB_PATH, json, { access: "private", addRandomSuffix: false, contentType: "application/json", allowOverwrite: true });
+  const sb = supabase();
+  if (sb) {
+    const res = await fetch(`${sb.url}/rest/v1/kv?on_conflict=key`, {
+      method: "POST",
+      headers: { apikey: sb.key, Authorization: `Bearer ${sb.key}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify({ key: KEY, value: state, updated_at: new Date().toISOString() }),
+    });
+    if (!res.ok) throw new Error(`Supabase write failed: ${res.status} ${(await res.text()).slice(0, 200)}`);
   } else {
     await fs.mkdir(path.dirname(LOCAL_PATH), { recursive: true });
-    await fs.writeFile(LOCAL_PATH, json);
+    await fs.writeFile(LOCAL_PATH, JSON.stringify(state));
   }
 }
 
@@ -66,8 +81,4 @@ export async function updateState(fn: (s: StoreState) => void | Promise<void>): 
   await fn(s);
   await saveState(s);
   return s;
-}
-
-export function storageMode(): "blob" | "local" {
-  return hasBlob() ? "blob" : "local";
 }
