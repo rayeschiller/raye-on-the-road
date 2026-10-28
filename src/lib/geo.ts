@@ -127,8 +127,19 @@ export function searchCities(q: string, limit = 8): Place[] {
 const GEO = geoSeed as unknown as Record<string, [number, number]>;
 const RAW = rawSeed as unknown as Record<string, [string, string, string, number, number]>;
 
+/** One canonical spelling per place, so variants cluster into a single pin */
+function canonicalPlace(p: Place | null): Place | null {
+  if (!p) return p;
+  if (/washington,?\s*d\.?c/i.test(p.region) || /^washington,?\s*d\.?c/i.test(p.city)) return { ...p, city: "Washington, D.C.", region: "District of Columbia", country: "United States" };
+  return p;
+}
+
 /** Resolve a free-text location answer to a city center. Returns null if ambiguous/unknown. */
 export function resolveLocation(raw: string): Place | null {
+  return canonicalPlace(resolveLocationInner(raw));
+}
+
+function resolveLocationInner(raw: string): Place | null {
   const key = (raw || "").trim().toLowerCase();
   if (!key) return null;
   const seeded = RAW[key];
