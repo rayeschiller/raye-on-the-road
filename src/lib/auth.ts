@@ -26,7 +26,7 @@ export function verifySession(token: string | undefined | null) {
 
 export function checkPassword(input: string) {
   const pw = process.env.SITE_PASSWORD;
-  if (!pw) return true; // no password set (local dev)
+  if (!pw) return !process.env.VERCEL_ENV; // no password: allowed only in local dev
   if (pw.length !== input.length) return false;
   return timingSafeEqual(Buffer.from(pw), Buffer.from(input));
 }

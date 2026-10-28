@@ -6,7 +6,11 @@ const PUBLIC = [/^\/login/, /^\/unsubscribe/, /^\/api\/login/, /^\/api\/unsubscr
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   if (PUBLIC.some((re) => re.test(pathname))) return NextResponse.next();
-  if (!process.env.SITE_PASSWORD) return NextResponse.next();
+  if (!process.env.SITE_PASSWORD) {
+    // Fail closed on a real deployment: no password configured means no access.
+    if (process.env.VERCEL_ENV) return new NextResponse("Locked: set SITE_PASSWORD in Vercel → Settings → Environment Variables, then redeploy.", { status: 503 });
+    return NextResponse.next();
+  }
   const token = req.cookies.get(COOKIE)?.value;
   if (verifySession(token)) return NextResponse.next();
   if (pathname.startsWith("/api/")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
