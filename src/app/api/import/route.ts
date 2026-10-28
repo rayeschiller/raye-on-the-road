@@ -16,7 +16,15 @@ export async function POST(req: NextRequest) {
   if (!(file instanceof File)) return NextResponse.json({ error: "No file" }, { status: 400 });
   const text = await file.text();
   if (file.name.endsWith(".json") || text.trimStart().startsWith("{")) {
-    const j = JSON.parse(text) as { kind?: string; people?: BeaconsPerson[] };
+    const j = JSON.parse(text) as { kind?: string; people?: BeaconsPerson[]; answers?: Record<string, string> };
+    if (j.kind === "raye-on-the-road-legacy-answers" && j.answers) {
+      const answers: Record<string, string> = {};
+      for (const [e, a] of Object.entries(j.answers)) if (e.includes("@") && typeof a === "string" && a.trim()) answers[e.trim().toLowerCase()] = a.trim();
+      await updateState((s) => {
+        s.legacyAnswers = { ...(s.legacyAnswers || {}), ...answers };
+      });
+      return NextResponse.json({ ok: true, imported: Object.keys(answers).length });
+    }
     if (j.kind !== "raye-on-the-road-beacons" || !Array.isArray(j.people)) return NextResponse.json({ error: "Not a Beacons import file" }, { status: 400 });
     const people = j.people.filter((p) => p.email?.includes("@")).map((p) => ({ ...p, email: p.email.toLowerCase() }));
     await updateState((s) => {

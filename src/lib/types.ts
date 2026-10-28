@@ -66,6 +66,8 @@ export type StoreState = {
   beacons: BeaconsPerson[];
   /** Last successful Wix pull, used as a fallback when the API is unreachable */
   wixSnapshot: { fetchedAt: string; people: WixPerson[] } | null;
+  /** One-time carry-over of "what city?" answers from the old site (email → raw answer). Live Wix answers win. */
+  legacyAnswers?: Record<string, string>;
 };
 
 export type BeaconsPerson = {

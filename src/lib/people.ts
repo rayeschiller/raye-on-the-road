@@ -114,9 +114,10 @@ export async function buildPeople(opts: { force?: boolean } = {}): Promise<{ peo
     p.lastName = p.lastName || w.lastName;
     p.wixStatus = w.subscriptionStatus;
     p.createdAt = w.createdAt || p.createdAt;
-    if (w.cityAnswer) {
-      p.rawLocation = w.cityAnswer;
-      const place = resolveLocation(w.cityAnswer);
+    const answer = w.cityAnswer || state.legacyAnswers?.[email] || "";
+    if (answer) {
+      p.rawLocation = answer;
+      const place = resolveLocation(answer);
       if (place) applyPlace(p, place, "requested");
       else if (p.locationKind !== "recorded") {
         p.locationKind = "none";

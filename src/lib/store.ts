@@ -18,6 +18,7 @@ function emptyState(): StoreState {
     campaigns: [],
     beacons: [] as BeaconsPerson[],
     wixSnapshot: null,
+    legacyAnswers: {},
   };
 }
 
