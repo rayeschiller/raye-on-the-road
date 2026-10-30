@@ -1,0 +1,3 @@
+{
+  "crons": [{ "path": "/api/hooks/signup", "schedule": "17 16 * * *" }]
+}

@@ -92,14 +92,25 @@ export async function loadKey<T>(key: string): Promise<T | null> {
   }
 }
 
+/** Like loadKey, but throws if storage can't be read (null only means "no row yet"). */
+export async function loadKeyStrict<T>(key: string): Promise<T | null> {
+  const sb = supabase();
+  if (!sb) return loadKey<T>(key);
+  const res = await fetch(`${sb.url}/rest/v1/rotr_kv?select=value&key=eq.${encodeURIComponent(key)}`, { headers: { apikey: sb.key, Authorization: `Bearer ${sb.key}` }, cache: "no-store" });
+  if (!res.ok) throw new Error(`Supabase read failed: ${res.status}`);
+  const rows = (await res.json()) as { value: T }[];
+  return rows[0]?.value ?? null;
+}
+
 export async function saveKey<T>(key: string, value: T): Promise<void> {
   const sb = supabase();
   if (sb) {
-    await fetch(`${sb.url}/rest/v1/rotr_kv?on_conflict=key`, {
+    const res = await fetch(`${sb.url}/rest/v1/rotr_kv?on_conflict=key`, {
       method: "POST",
       headers: { apikey: sb.key, Authorization: `Bearer ${sb.key}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
       body: JSON.stringify({ key, value, updated_at: new Date().toISOString() }),
     });
+    if (!res.ok) throw new Error(`Supabase write failed: ${res.status}`);
     return;
   }
   await fs.mkdir(path.join(process.cwd(), "data"), { recursive: true });

@@ -1,6 +1,6 @@
 /**
  * The "you made it on the list" welcome email, sent from hello@rayeschiller.com via Resend
- * when someone submits the signup form on rayeschiller.com (Wix automation → /api/hooks/signup).
+ * to everyone who signs up on rayeschiller.com. See src/lib/welcomeSync.ts for how signups are found.
  */
 
 export const WELCOME_SUBJECT = "you made it on the list! <3";
@@ -12,10 +12,10 @@ const PHOTO_URL =
 
 /** "say hey!" links in the footer. Leave a url empty to hide that icon. */
 export const SOCIALS: { label: string; url: string }[] = [
-  { label: "Instagram", url: process.env.SOCIAL_INSTAGRAM || "" },
-  { label: "TikTok", url: process.env.SOCIAL_TIKTOK || "" },
-  { label: "YouTube", url: process.env.SOCIAL_YOUTUBE || "" },
-  { label: "Facebook", url: process.env.SOCIAL_FACEBOOK || "" },
+  { label: "Instagram", url: "https://www.instagram.com/rayeschiller" },
+  { label: "Facebook", url: "https://www.facebook.com/rayeschillercomedy" },
+  { label: "YouTube", url: "" },
+  { label: "TikTok", url: "" },
 ];
 
 const CREAM = "#FDF3E1";
@@ -84,45 +84,4 @@ You're getting this because you signed up at rayeschiller.com.${address ? `\n${a
 Unsubscribe: ${unsubUrl}`;
 
   return { html, text };
-}
-
-const EMAIL_RE = /^[^\s@<>"]+@[^\s@<>"]+\.[a-z]{2,}$/i;
-
-/**
- * Pull the subscriber's email (and first name, if present) out of whatever JSON Wix posts.
- * Wix's automation payload shape varies by trigger, so prefer keys that look like the
- * contact's email, then fall back to any email-shaped string that isn't ours.
- */
-export function extractSignup(payload: unknown): { email: string; firstName: string } | null {
-  const emails: { key: string; value: string }[] = [];
-  let firstName = "";
-  const walk = (v: unknown, key: string, depth: number) => {
-    if (depth > 8 || v == null) return;
-    if (typeof v === "string") {
-      const s = v.trim();
-      if (EMAIL_RE.test(s)) emails.push({ key: key.toLowerCase(), value: s.toLowerCase() });
-      if (!firstName && /^(first_?name|firstname|first|contact_?first_?name)$/i.test(key) && s.length < 60) firstName = s;
-      return;
-    }
-    if (Array.isArray(v)) {
-      // Wix form submissions often come as [{ title/label, value }] pairs
-      for (const item of v) {
-        if (item && typeof item === "object") {
-          const o = item as Record<string, unknown>;
-          const label = String(o.title ?? o.label ?? o.fieldTitle ?? o.key ?? "");
-          const val = o.value ?? o.inputValue ?? o.fieldInputValue;
-          if (label && typeof val === "string") walk(val, label.replace(/\s+/g, "_"), depth + 1);
-        }
-        walk(item, key, depth + 1);
-      }
-      return;
-    }
-    if (typeof v === "object") for (const [k, val] of Object.entries(v as Record<string, unknown>)) walk(val, k, depth + 1);
-  };
-  walk(payload, "", 0);
-  const ours = /@(rayeschiller\.com|wix\.com|wix-forms\.com|wixemails\.com)$/i;
-  const candidates = emails.filter((e) => !ours.test(e.value));
-  const best = candidates.find((e) => /email/.test(e.key)) || candidates[0];
-  if (!best) return null;
-  return { email: best.value, firstName };
 }

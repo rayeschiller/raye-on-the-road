@@ -43,20 +43,23 @@ Wix dashboard → (top-right avatar) → **API Keys** → Generate API Key:
 
 ## Welcome email (replaces the Wix thank-you automation)
 
-When someone signs up on rayeschiller.com, a Wix automation posts the submission to
-`/api/hooks/signup`, which sends the "you made it on the list! <3" email from
-`hello@rayeschiller.com` through Resend. No Wix branding; reply-to is hello@; one-click unsubscribe
-uses the same list as show emails; each address is only welcomed once.
+Everyone who signs up on rayeschiller.com gets the "you made it on the list! <3" email from
+`hello@rayeschiller.com` via Resend: no Wix branding, reply-to hello@, one-click unsubscribe
+(same list as show emails).
 
-- Copy & design: `src/lib/welcome.ts` · signature image: `public/email/signature.png`
-- Preview (logged in): `/api/welcome/preview`
-- Env vars: `WELCOME_HOOK_SECRET` (any long random string), plus the existing `RESEND_API_KEY`,
-  `EMAIL_FROM`, `SITE_URL`. Optional footer links: `SOCIAL_INSTAGRAM`, `SOCIAL_TIKTOK`,
-  `SOCIAL_YOUTUBE`, `SOCIAL_FACEBOOK` (full URLs; unset ones are hidden).
-- Send a test: `https://road.rayeschiller.com/api/hooks/signup?key=<WELCOME_HOOK_SECRET>&to=you@example.com`
-- Wix: Automations → trigger **Form submitted** → action **Send HTTP request / webhook** (POST, JSON) to
-  `https://road.rayeschiller.com/api/hooks/signup?key=<WELCOME_HOOK_SECRET>`. Then deactivate the old
-  "Thank-you email after signup" automation so nobody gets two emails.
+How it stays reliable: `/api/hooks/signup` takes **no data from the caller**. Each call
+("someone may have signed up") makes the site read the last 7 days of form submissions from Wix
+itself and welcome anyone not yet welcomed. It's called by:
+- the Wix automation **Form submitted → Send HTTP request** (POST `https://road.rayeschiller.com/api/hooks/signup`), within seconds
+- a daily Vercel cron (`vercel.json`), which catches anyone missed while the site, Wix, Resend or Supabase was down
+
+Each address is welcomed once (log in Supabase key `welcome-email` + a Resend idempotency key).
+The very first call only records a start time, so people who signed up earlier (and got the old
+Wix email) are never emailed. If storage or Wix is unreachable, the run stops and the next one catches up.
+
+- Copy & design: `src/lib/welcome.ts` (social links: `SOCIALS`) · signature: `public/email/signature.png`
+- Logged-in preview: `/api/welcome/preview` · logged-in test send: `/api/welcome/test?to=you@example.com`
+- Needs the existing `RESEND_API_KEY`, `EMAIL_FROM`, `SITE_URL`, Wix and Supabase env vars; nothing new.
 
 ## Local dev
 
