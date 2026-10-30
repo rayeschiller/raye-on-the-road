@@ -41,6 +41,26 @@ Wix dashboard → (top-right avatar) → **API Keys** → Generate API Key:
 - Permissions: **Read Contacts** (under Contacts & Members / CRM) and **Read Submissions** (under Wix Forms)
 - Site ID: Wix dashboard URL looks like `manage.wix.com/dashboard/<SITE_ID>/…`
 
+## Welcome email (replaces the Wix thank-you automation)
+
+Everyone who signs up on rayeschiller.com gets the "you made it on the list! <3" email from
+`hello@rayeschiller.com` via Resend: no Wix branding, reply-to hello@, one-click unsubscribe
+(same list as show emails).
+
+How it stays reliable: `/api/hooks/signup` takes **no data from the caller**. Each call
+("someone may have signed up") makes the site read the last 7 days of form submissions from Wix
+itself and welcome anyone not yet welcomed. It's called by:
+- the Wix automation **Form submitted → Send HTTP request** (POST `https://road.rayeschiller.com/api/hooks/signup`), within seconds
+- a daily Vercel cron (`vercel.json`), which catches anyone missed while the site, Wix, Resend or Supabase was down
+
+Each address is welcomed once (log in Supabase key `welcome-email` + a Resend idempotency key).
+The very first call only records a start time, so people who signed up earlier (and got the old
+Wix email) are never emailed. If storage or Wix is unreachable, the run stops and the next one catches up.
+
+- Copy & design: `src/lib/welcome.ts` (social links: `SOCIALS`) · signature: `public/email/signature.png`
+- Logged-in preview: `/api/welcome/preview` · logged-in test send: `/api/welcome/test?to=you@example.com`
+- Needs the existing `RESEND_API_KEY`, `EMAIL_FROM`, `SITE_URL`, Wix and Supabase env vars; nothing new.
+
 ## Local dev
 
 ```bash

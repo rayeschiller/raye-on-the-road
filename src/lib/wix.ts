@@ -111,6 +111,55 @@ async function fetchSubmissions(): Promise<WixSubmission[]> {
   return out;
 }
 
+/**
+ * Form submissions created at or after `sinceISO`, newest first, with the submitter's email.
+ * Used by the welcome email. Unlike fetchSubmissions this throws on failure, so a Wix outage
+ * means "try again later" rather than "nobody new signed up".
+ */
+export async function fetchRecentSignups(sinceISO: string): Promise<{ email: string; firstName: string; createdAt: string }[]> {
+  const since = Date.parse(sinceISO);
+  const out: { email: string; firstName: string; createdAt: string }[] = [];
+  let cursor: string | undefined;
+  for (let page = 0; page < 10; page++) {
+    const body = cursor
+      ? { query: { cursorPaging: { limit: 100, cursor } } }
+      : { query: { filter: { namespace: "wix.form_app.form" }, sort: [{ fieldName: "createdDate", order: "DESC" }], cursorPaging: { limit: 100 } } };
+    const r = await wixPost<{ submissions?: WixSubmission[]; metadata?: { hasNext?: boolean; cursors?: { next?: string } } }>(
+      "/form-submission-service/v4/submissions/namespace/query",
+      body,
+    );
+    let reachedOld = false;
+    for (const s of r.submissions || []) {
+      const at = s.createdDate ? Date.parse(s.createdDate) : NaN;
+      if (!Number.isFinite(at) || at < since) {
+        reachedOld = true;
+        continue;
+      }
+      const vals = s.submissions || {};
+      let email = "";
+      let firstName = "";
+      for (const [k, v] of Object.entries(vals)) {
+        if (typeof v !== "string") continue;
+        if (!email && EMAIL_KEY.test(k) && v.includes("@")) email = v.trim().toLowerCase();
+        if (!firstName && /first/i.test(k)) firstName = v.trim();
+      }
+      if (!email && s.contactId) {
+        try {
+          const c = await wixGet<{ contact?: { primaryInfo?: { email?: string }; info?: { name?: { first?: string } } } }>(`/contacts/v4/contacts/${s.contactId}`);
+          email = (c.contact?.primaryInfo?.email || "").trim().toLowerCase();
+          firstName = firstName || c.contact?.info?.name?.first || "";
+        } catch {
+          /* contact unreadable: skip */
+        }
+      }
+      if (email) out.push({ email, firstName, createdAt: s.createdDate! });
+    }
+    if (reachedOld || !r.metadata?.hasNext || !r.metadata.cursors?.next) break;
+    cursor = r.metadata.cursors.next;
+  }
+  return out;
+}
+
 const CITY_LABEL = /(city|where|town|tour|location|come|bring|near|live)/i;
 const EMAIL_KEY = /email/i;
 const NAME_KEY = /(first|last|name)/i;
