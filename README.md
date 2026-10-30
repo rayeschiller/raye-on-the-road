@@ -41,6 +41,23 @@ Wix dashboard → (top-right avatar) → **API Keys** → Generate API Key:
 - Permissions: **Read Contacts** (under Contacts & Members / CRM) and **Read Submissions** (under Wix Forms)
 - Site ID: Wix dashboard URL looks like `manage.wix.com/dashboard/<SITE_ID>/…`
 
+## Welcome email (replaces the Wix thank-you automation)
+
+When someone signs up on rayeschiller.com, a Wix automation posts the submission to
+`/api/hooks/signup`, which sends the "you made it on the list! <3" email from
+`hello@rayeschiller.com` through Resend. No Wix branding; reply-to is hello@; one-click unsubscribe
+uses the same list as show emails; each address is only welcomed once.
+
+- Copy & design: `src/lib/welcome.ts` · signature image: `public/email/signature.png`
+- Preview (logged in): `/api/welcome/preview`
+- Env vars: `WELCOME_HOOK_SECRET` (any long random string), plus the existing `RESEND_API_KEY`,
+  `EMAIL_FROM`, `SITE_URL`. Optional footer links: `SOCIAL_INSTAGRAM`, `SOCIAL_TIKTOK`,
+  `SOCIAL_YOUTUBE`, `SOCIAL_FACEBOOK` (full URLs; unset ones are hidden).
+- Send a test: `https://road.rayeschiller.com/api/hooks/signup?key=<WELCOME_HOOK_SECRET>&to=you@example.com`
+- Wix: Automations → trigger **Form submitted** → action **Send HTTP request / webhook** (POST, JSON) to
+  `https://road.rayeschiller.com/api/hooks/signup?key=<WELCOME_HOOK_SECRET>`. Then deactivate the old
+  "Thank-you email after signup" automation so nobody gets two emails.
+
 ## Local dev
 
 ```bash
